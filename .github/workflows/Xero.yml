@@ -1,0 +1,52 @@
+name: Virtual Environment
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore: 
+      - 'README.md'
+      - '*.sh'
+  workflow_dispatch:
+   
+env:
+  GitHubMail: ${{ secrets.GH_MAIL }}
+  GitHubName: ${{ secrets.GH_USER }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@main
+
+      - name: Set Git Configs & Secrets
+        run: |
+          git config --global user.email ${GitHubMail}
+          git config --global user.name ${GitHubName}
+          git config --global credential.helper store
+          echo "https://${GitHubName}:${{ secrets.GH_TOKEN }}@github.com" > ~/.git-credentials
+
+      - name: Clone The Repository
+        run: |
+          git clone https://${{ secrets.GH_TOKEN }}@github.com/${GITHUB_REPOSITORY} -b main source
+
+      - name: Setting Up
+        run: |
+          sudo sh setup.sh
+
+      - name: Running Mirror-bot
+        timeout-minutes: 340
+        continue-on-error: true
+        run: |
+          sudo sh mirror-bot.sh
+
+      - name: Loop Workflow
+        continue-on-error: true
+        run: |
+          git clone https://${{ secrets.GH_TOKEN }}@github.com/${GITHUB_REPOSITORY} loop
+          cd loop || exit 1
+          echo $(( RANDOM - ( RANDOM % RANDOM ) )) > loop.txt
+          git add loop.txt
+          git commit -m "Workflow : Loop"
+          git push -q https://${{ secrets.GH_TOKEN }}@github.com/${GITHUB_REPOSITORY} HEAD:main
